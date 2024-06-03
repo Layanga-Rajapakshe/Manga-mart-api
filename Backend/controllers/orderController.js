@@ -29,47 +29,60 @@ const createOrder = async (req, res) => {
   try {
     const { orderItems, shippingAddress, paymentMethod } = req.body;
 
-    if (orderItems && orderItems.length === 0) {
+    if (!orderItems || orderItems.length === 0) {
       res.status(400);
       throw new Error("No order items");
     }
 
     const baseUrl = 'https://api.jikan.moe/v4/manga/';
 
-    // Create an array of promises for fetching each manga
-    const itemsFromDB = orderItems.map(async item => {
-        const url = `${baseUrl}${item.mal_id}`;
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch manga with ID ${item._id}: ${response.statusText}`);
-        }
-        return await response.json();
-    });
-        
-    // const itemsFromDB = await Product.find({
-    //   _id: { $in: orderItems.map((x) => x._id) },
-    // });
+    // // Create an array of promises for fetching each manga
+    // const itemsFromDB = await Promise.all(orderItems.map(async (item) => {
+    //   const url = `${baseUrl}${item.mal_id}`;
+    //   const response = await fetch(url);
+    //   if (!response.ok) {
+    //     throw new Error(`Failed to fetch manga with ID ${item.mal_id}: ${response.statusText}`);
+    //   }
+    //   return await response.json();
+    // }));
 
-    const dbOrderItems = orderItems.map((itemFromClient) => {
-      const matchingItemFromDB = itemsFromDB.find(
-        (itemFromDB) => itemFromDB.mal_id.toString() === itemFromClient.mal_id
+    // async function fetchItemDetails(id) {
+    //   const url = `${baseUrl}${id}`;
+    //   console.log(url);
+    //   const response = await fetch(url);
+    //   if (!response.ok) {
+    //     throw new Error(`Product not found: ${id}`);
+    //   }
+    //   return await response.json();
+    // }
+
+    async function processOrderItems(orderItems) {
+      const processedItems = await Promise.all(
+        orderItems.map(async (itemFromClient) => {
+          const matchingItemFromDB = await Promise.all(orderItems.map(async (item) => {
+            const url = `${baseUrl}${item.mal_id}`;
+            const response = await fetch(url);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch manga with ID ${item.mal_id}: ${response.statusText}`);
+            }
+            return await response.json();
+          }));
+    
+          return {
+            ...itemFromClient,
+            product: itemFromClient.mal_id,
+            price: matchingItemFromDB.price,
+            mal_id: undefined,
+          };
+        })
       );
+    
+      return processedItems;
+    }
+    const dbOrderItems = await processOrderItems(orderItems);
+    console.log(dbOrderItems);
 
-      if (!matchingItemFromDB) {
-        res.status(404);
-        throw new Error(`Product not found: ${itemFromClient.mal_id}`);
-      }
-
-      return {
-        ...itemFromClient,
-        product: itemFromClient.mal_id,
-        price: matchingItemFromDB.price,
-        mal_id: undefined,
-      };
-    });
-
-    const { itemsPrice, taxPrice, shippingPrice, totalPrice } =
-      calcPrices(dbOrderItems);
+    const { itemsPrice, taxPrice, shippingPrice, totalPrice } = calcPrices(dbOrderItems);
 
     const order = new Order({
       orderItems: dbOrderItems,
@@ -85,6 +98,8 @@ const createOrder = async (req, res) => {
     const createdOrder = await order.save();
     res.status(201).json(createdOrder);
   } catch (error) {
+    console.error('Error creating order:', error.message);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({ error: error.message });
   }
 };
