@@ -1,4 +1,5 @@
 import Order from "../models/orderModel.js";
+import fetch from 'node-fetch'; // Ensure you have node-fetch installed
 
 // Utility Function
 function calcPrices(orderItems) {
@@ -36,49 +37,28 @@ const createOrder = async (req, res) => {
 
     const baseUrl = 'https://api.jikan.moe/v4/manga/';
 
-    // // Create an array of promises for fetching each manga
-    // const itemsFromDB = await Promise.all(orderItems.map(async (item) => {
-    //   const url = `${baseUrl}${item.mal_id}`;
-    //   const response = await fetch(url);
-    //   if (!response.ok) {
-    //     throw new Error(`Failed to fetch manga with ID ${item.mal_id}: ${response.statusText}`);
-    //   }
-    //   return await response.json();
-    // }));
-
-    // async function fetchItemDetails(id) {
-    //   const url = `${baseUrl}${id}`;
-    //   console.log(url);
-    //   const response = await fetch(url);
-    //   if (!response.ok) {
-    //     throw new Error(`Product not found: ${id}`);
-    //   }
-    //   return await response.json();
-    // }
-
     async function processOrderItems(orderItems) {
       const processedItems = await Promise.all(
         orderItems.map(async (itemFromClient) => {
-          const matchingItemFromDB = await Promise.all(orderItems.map(async (item) => {
-            const url = `${baseUrl}${item.mal_id}`;
-            const response = await fetch(url);
-            if (!response.ok) {
-              throw new Error(`Failed to fetch manga with ID ${item.mal_id}: ${response.statusText}`);
-            }
-            return await response.json();
-          }));
-    
+          const url = `${baseUrl}${itemFromClient.mal_id}`;
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch manga with ID ${itemFromClient.mal_id}: ${response.statusText}`);
+          }
+          const mangaData = await response.json();
           return {
             ...itemFromClient,
-            product: itemFromClient.mal_id,
-            price: matchingItemFromDB.price,
+            product: mangaData.data.mal_id,
+            price: mangaData.data.price || 58, // Assuming price is 10 if not provided in API
             mal_id: undefined,
+            images: mangaData.data.images.jpg.image_url, // Set the image URL
           };
         })
       );
-    
-      return processedItems;
+
+      return processedItems;  
     }
+
     const dbOrderItems = await processOrderItems(orderItems);
     console.log(dbOrderItems);
 
@@ -141,7 +121,7 @@ const calculateTotalSales = async (req, res) => {
   }
 };
 
-const calcualteTotalSalesByDate = async (req, res) => {
+const calculateTotalSalesByDate = async (req, res) => {
   try {
     const salesByDate = await Order.aggregate([
       {
@@ -233,7 +213,7 @@ export {
   getUserOrders,
   countTotalOrders,
   calculateTotalSales,
-  calcualteTotalSalesByDate,
+  calculateTotalSalesByDate,
   findOrderById,
   markOrderAsPaid,
   markOrderAsDelivered,
