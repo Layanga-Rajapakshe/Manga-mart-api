@@ -49,7 +49,7 @@ const createOrder = async (req, res) => {
           return {
             ...itemFromClient,
             product: mangaData.data.mal_id,
-            price: mangaData.data.price || 58, // Assuming price is 10 if not provided in API
+            price: mangaData.data.price || 18, // Assuming price is 10 if not provided in API
             mal_id: undefined,
             images: mangaData.data.images.jpg.image_url, // Set the image URL
           };
@@ -60,7 +60,6 @@ const createOrder = async (req, res) => {
     }
 
     const dbOrderItems = await processOrderItems(orderItems);
-    console.log(dbOrderItems);
 
     const { itemsPrice, taxPrice, shippingPrice, totalPrice } = calcPrices(dbOrderItems);
 
