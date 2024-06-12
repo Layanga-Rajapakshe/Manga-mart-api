@@ -47,6 +47,11 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const existingUser = await User.findOne({ email });
 
+  if(!existingUser){
+    res.status(400);
+    throw new Error("Invalid email or password");
+  }
+
   if (existingUser) {
     const isPasswordValid = await bcrypt.compare(
       password,
