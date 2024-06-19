@@ -178,6 +178,15 @@ const updateUserById = asyncHandler(async (req, res) => {
   }
 });
 
+const getTotalUsers = asyncHandler(async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments({});
+    res.json({ totalUsers });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export {
   createUser,
   loginUser,
@@ -188,4 +197,5 @@ export {
   deleteUserById,
   getUserById,
   updateUserById,
+  getTotalUsers,
 };
